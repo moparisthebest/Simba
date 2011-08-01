@@ -38,8 +38,8 @@ uses
   Should be 100% OS independant, as all OS dependant code is in the IO Manager.
   Let's try not to use any OS-specific defines here? ;)
 
-
-  Benchmarks with FindBitmapToleranceIn on _very_ high tolerance!
+  TODO: Check that each procedure calling Create_CTSInfo also calls
+  Free_CTSInfo().
 }
 
 type
@@ -658,6 +658,8 @@ begin
     end;
     Inc(Ptr, PtrInc)
   end;
+
+  Free_CTSInfo(ctsinfo);
   TClient(Client).IOManager.FreeReturnData;
 end;
 
@@ -798,48 +800,10 @@ var
    RowData : TPRGB32Array;
    dX, dY, clR, clG, clB,i,Hispiral: Integer;
 
-   function cts0: integer;
-     var j: integer;
-   begin
-     for j := 0 to HiSpiral do
-       if ((abs(clB-RowData[ClientTPA[j].y][ClientTPA[j].x].B) <= Tol) and
-          (abs(clG-RowData[ClientTPA[j].y][ClientTPA[j].x].G) <= Tol) and
-          (Abs(clR-RowData[ClientTPA[j].y][ClientTPA[j].x].R) <= Tol)) then
-            exit(j);
-     exit(-1);
-   end;
-
-   function cts1: integer;
-     var j: integer;
-   begin
-     Tol := Sqr(Tol);
-     for j := 0 to HiSpiral do
-          if (sqr(clB - RowData[ClientTPA[j].y][ClientTPA[j].x].B) +
-              sqr(clG - RowData[ClientTPA[j].y][ClientTPA[j].x].G) +
-              sqr(clR-RowData[ClientTPA[j].y][ClientTPA[j].x].R)) <= Tol then
-             exit(j);
-     exit(-1);
-   end;
-
-  function cts2: integer;
-    var j: integer;
-        HueXTol, SatXTol: Extended;
-        H1, S1, L1, H2, S2, L2: Extended;
-  begin
-    RGBToHSL(clR,clG,clB,H1,S1,L1);
-    HueXTol := hueMod * Tol;
-    SatXTol := satMod * Tol;
-    for j := 0 to HiSpiral do
-    begin
-      RGBToHSL(RowData[ClientTPA[j].y][ClientTPA[j].x].R,
-               RowData[ClientTPA[j].y][ClientTPA[j].x].G,
-               RowData[ClientTPA[j].y][ClientTPA[j].x].B,H2,S2,L2);
-      if ((abs(H1 - H2) <= HueXTol) and (abs(S1 - S2) <= SatXTol) and (abs(L1 - L2) <= Tol)) then
-        exit(j);
-    end;
-
-    exit(-1);
-  end;
+var
+   j: integer;
+   compare: TCTSCompareFunction;
+   ctsinfo: TCTSInfo;
 
 begin
   Result := false;
@@ -858,11 +822,22 @@ begin
   //Load the spiral path
   LoadSpiralPath(x-xs,y-ys,0,0,dx,dy);
   HiSpiral := (dy+1) * (dx + 1) -1;
-  case CTS of
-    0: i := cts0();
-    1: i := cts1();
-    2: i := cts2();
+
+  ctsinfo := Create_CTSInfo(Self.CTS, Color, Tol, hueMod, satMod);
+  compare := Get_CTSCompare(Self.CTS);
+
+  i := -1;
+  for j := 0 to HiSpiral do
+  begin
+    if compare(ctsinfo, @RowData[ClientTPA[j].y][ClientTPA[j].x]) then
+    begin
+      i := j;
+      break;
+    end;
   end;
+
+  Free_CTSInfo(ctsinfo);
+
   if i = -1 then
   begin
     Result := False;
@@ -1126,6 +1101,7 @@ begin
   end;
 
   Result := False;
+  Free_CTSInfo(ctsinfo);
   TClient(Client).IOManager.FreeReturnData;
   Exit;
 
@@ -1133,6 +1109,7 @@ begin
     Result := True;
     x := xx;
     y := yy;
+    Free_CTSInfo(ctsinfo);
     TClient(Client).IOManager.FreeReturnData;
 end;
 
@@ -1145,7 +1122,12 @@ var
    clR, clG, clB : Byte;
    H1, S1, L1: Extended;
    NotFound : Boolean;
+
+   compare: TCTSCompareFunction;
+   ctsinfo: TCTSInfo;
+
    label Hit;
+
 
 begin
   Result := false;
@@ -1166,13 +1148,17 @@ begin
   Ptr := PtrData.Ptr;
   PtrInc := PtrData.IncPtrWith;
   Count := 0;
+
+  ctsinfo := Create_CTSInfo(Self.CTS, Color, Tol, hueMod, satMod);
+  compare := Get_CTSCompare(Self.CTS);
+
   for yy := ys to ye do
   begin;
     for xx := xs to xe do
     begin;
       NotFound := False;
       // Colour comparison here.
-      if ColorSame(CTS, Tol, Ptr^.R, Ptr^.G, Ptr^.B, clR, clG, clB, H1, S1, L1, huemod, satmod) then
+      if compare(ctsinfo, Ptr) then
       begin
         Before := Ptr;
         for fy := yy to ye do
@@ -1180,7 +1166,7 @@ begin
           for fx := xx to xe do
           begin
             Inc(Ptr);
-            if not ColorSame(CTS, Tol, Ptr^.R, Ptr^.G, Ptr^.B, clR, clG, clB, H1, S1, L1, huemod, satmod) then
+            if compare(ctsinfo, Ptr) then
             begin
               NotFound := True;
               Break;
@@ -1204,6 +1190,7 @@ begin
   end;
 
   Result := False;
+  Free_CTSInfo(ctsinfo);
   TClient(Client).IOManager.FreeReturnData;
   Exit;
 
@@ -1211,6 +1198,7 @@ begin
     Result := True;
     x := xx;
     y := yy;
+    Free_CTSInfo(ctsinfo);
     TClient(Client).IOManager.FreeReturnData;
 end;
 
@@ -1702,10 +1690,6 @@ begin
           if not SkipCoords[yBmp][xBmp] then
             if not compare(ctsinfoarray[yBmp][xBmp],
                            @MainRowData[tmpY][xBmp + xx]) then
-                {            if not ColorSame(CCTS,tolerance,
-                             BmpRowData[yBmp][xBmp].R,BmpRowData[yBmp][xBmp].G,BmpRowData[yBmp][xBmp].B,
-                             MainRowdata[tmpY][xBmp +  xx].R,MainRowdata[tmpY][xBmp +  xx].G,MainRowdata[tmpY][xBmp +  xx].B,
-                             H,S,L,HMod,SMod) then }
                goto NotFoundBmp;
       end;
 
@@ -1717,7 +1701,7 @@ begin
       x := xx + xs;
       y := yy + ys;
       result := true;
-      exit;
+      Exit;
       NotFoundBmp:
     end;
 
@@ -1800,6 +1784,10 @@ var
    CCTS : integer;
    H,S,L,HMod,SMod : extended;
    SkipCoords : T2DBoolArray;
+
+   ctsinfoarray: TCTSInfo2DArray;
+   compare: TCTSCompareFunction;
+
 label NotFoundBmp;
   { Don't know if the compiler has any speed-troubles with goto jumping in nested for loops. } 
 
@@ -1825,9 +1813,11 @@ begin
   //Load the spiral into memory
   LoadSpiralPath(x-xs,y-ys,0,0,dX,dY);
   HiSpiral := (dx+1) * (dy+1) - 1;
-  //Compiler hints
-  HMod := 0;SMod := 0;H := 0.0;S := 0.0; L := 0.0;
-  CCTS := Self.CTS;
+
+
+  ctsinfoarray := Create_CTSInfo2DArray(Self.CTS, bmpW, bmpH, BmpRowData,
+      Tolerance, self.hueMod, self.satMod);
+  compare := Get_CTSCompare(Self.CTS);
 
   //Get the "skip coords".
   CalculateBitmapSkipCoords(Bitmap,SkipCoords);
@@ -1838,21 +1828,23 @@ begin
         tmpY := yBmp + ClientTPA[i].y;
         for xBmp := 0 to BmpW do
           if not SkipCoords[yBmp][xBmp] then
-            if not ColorSame(CCTS,tolerance,
-                             BmpRowData[yBmp][xBmp].R,BmpRowData[yBmp][xBmp].G,BmpRowData[yBmp][xBmp].B,
-                             MainRowdata[tmpY][xBmp +  ClientTPA[i].x].R,MainRowdata[tmpY][xBmp +  ClientTPA[i].x].G,
-                             MainRowdata[tmpY][xBmp +  ClientTPA[i].x].B,
-                             H,S,L,HMod,SMod) then
+            if not compare(ctsinfoarray[yBmp][xBmp],
+                           @MainRowData[tmpY][xBmp + ClientTPA[i].x]) then
               goto NotFoundBmp;
 
     end;
     //We did find the Bmp, otherwise we would be at the part below
+
+    Free_CTSInfo2DArray(ctsinfoarray);
+    TClient(Client).IOManager.FreeReturnData;
+
     x := ClientTPA[i].x + xs;
     y := ClientTPA[i].y + ys;
     result := true;
     exit;
     NotFoundBmp:
   end;
+  Free_CTSInfo2DArray(ctsinfoarray);
   TClient(Client).IOManager.FreeReturnData;
 end;
 
@@ -1870,6 +1862,10 @@ var
    CCTS : integer;
    H,S,L,HMod,SMod : extended;
    SkipCoords : T2DBoolArray;
+
+   ctsinfoarray: TCTSInfo2DArray;
+   compare: TCTSCompareFunction;
+
 label NotFoundBmp;
    { Don't know if the compiler has any speed-troubles with goto jumping in nested for loops. }
 
@@ -1895,10 +1891,12 @@ begin
   //Load the spiral into memory
   LoadSpiralPath(x-xs,y-ys,0,0,dX,dY);
   HiSpiral := (dx+1) * (dy+1) - 1;
-  //Compiler hints
-  HMod := 0;SMod := 0;H := 0.0;S := 0.0; L := 0.0;
-  CCTS := Self.CTS;
   FoundC := 0;
+
+  ctsinfoarray := Create_CTSInfo2DArray(Self.CTS, bmpW, bmpH, BmpRowData,
+      Tolerance, self.hueMod, self.satMod);
+  compare := Get_CTSCompare(Self.CTS);
+
   //Get the "skip coords".
   CalculateBitmapSkipCoords(Bitmap,SkipCoords);
   for i := 0 to HiSpiral do
@@ -1908,11 +1906,8 @@ begin
         tmpY := yBmp + ClientTPA[i].y;
         for xBmp := 0 to BmpW do
           if not SkipCoords[yBmp][xBmp] then
-            if not ColorSame(CCTS,tolerance,
-                             BmpRowData[yBmp][xBmp].R,BmpRowData[yBmp][xBmp].G,BmpRowData[yBmp][xBmp].B,
-                             MainRowdata[tmpY][xBmp +  ClientTPA[i].x].R,MainRowdata[tmpY][xBmp +  ClientTPA[i].x].G,
-                             MainRowdata[tmpY][xBmp +  ClientTPA[i].x].B,
-                             H,S,L,HMod,SMod) then
+            if not compare(ctsinfoarray[yBmp][xBmp],
+                           @MainRowData[tmpY][xBmp + ClientTPA[i].x]) then
               goto NotFoundBmp;
 
     end;
@@ -1928,6 +1923,8 @@ begin
     SetLength(Points,FoundC);
     Move(ClientTPA[0], Points[0], FoundC * SizeOf(TPoint));
   end;
+
+  Free_CTSInfo2DArray(ctsinfoarray);
   TClient(Client).IOManager.FreeReturnData;
 end;
 
@@ -1950,6 +1947,10 @@ var
    TotalC : integer;
    SkipCoords : T2DBoolArray;
    PointsLeft : T2DIntArray;
+
+   ctsinfoarray: TCTSInfo2DArray;
+   compare: TCTSCompareFunction;
+
 label FoundBMPPoint, Madness;
   { Don't know if the compiler has any speed-troubles with goto jumping in nested for loops. }
 
@@ -1977,6 +1978,11 @@ begin
   Accuracy := 0;
   BestCount := -1;
   BestPT := Point(-1,-1);
+
+  ctsinfoarray := Create_CTSInfo2DArray(Self.CTS, bmpW, bmpH, BmpRowData,
+      Tolerance, self.hueMod, self.satMod);
+  compare := Get_CTSCompare(Self.CTS);
+
   //Get the "skip coords". and PointsLeft (so we can calc whether we should stop searching or not ;-).
   CalculateBitmapSkipCoordsEx(Bitmap,SkipCoords,TotalC,PointsLeft);
 
@@ -2003,8 +2009,8 @@ begin
             xEnd := Min(xx+range + xBmp,SearchdX);
             for RangeX := xStart to xEnd do
             begin;
-              if Sqrt(sqr(BmpRowData[yBmp][xBmp].R - MainRowdata[RangeY][RangeX].R) + sqr(BmpRowData[yBmp][xBmp].G - MainRowdata[RangeY][RangeX].G)
-                          +sqr(BmpRowData[yBmp][xBmp].B - MainRowdata[RangeY][RangeX].B)) <= tolerance then
+            if not compare(ctsinfoarray[yBmp][xBmp],
+                           @MainRowData[rangeY][rangeX]) then
                 goto FoundBMPPoint;
             end;
           end;
@@ -2022,7 +2028,8 @@ begin
         BestCount := GoodCount;
         BestPT := Point(xx+xs,yy+ys);
         if GoodCount = TotalC then
-        begin;
+        begin
+          Free_CTSInfo2DArray(ctsinfoarray);
           TClient(Client).IOManager.FreeReturnData;
           x := BestPT.x;
           y := BestPT.y;
@@ -2031,6 +2038,8 @@ begin
         end;
       end;
     end;
+
+  Free_CTSInfo2DArray(ctsinfoarray);
   TClient(Client).IOManager.FreeReturnData;
   if BestCount = 0 then
     Exit;
