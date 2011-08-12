@@ -1,5 +1,5 @@
 object Form1: TForm1
-  Left = 466
+  Left = 508
   Height = 434
   Top = 179
   Width = 702
@@ -32,9 +32,9 @@ object Form1: TForm1
     TabOrder = 1
     object Memo1: TMemo
       Left = 14
-      Height = 280
-      Top = 8
-      Width = 376
+      Height = 288
+      Top = 15
+      Width = 384
       BorderStyle = bsNone
       Color = clBtnFace
       ReadOnly = True
