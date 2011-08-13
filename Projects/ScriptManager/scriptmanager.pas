@@ -37,7 +37,7 @@ uses
   {$IFDEF UNIX}cthreads,cmem,{$ENDIF} Classes, SysUtils, FileUtil, Forms,
   Controls, Graphics, Dialogs, StdCtrls,
   ExtCtrls, ComCtrls, ActnList, Menus, settings, updater,strutils, MufasaTypes,
-  dom, mmisc, Simbasettings, SimbaUnit;
+  dom, mmisc;
 
 type
 
@@ -213,12 +213,12 @@ begin
     Script := TSimbaScript(ListView1.Selected.Data);
     if Script.IsInstalled then
     begin
-      ShowMessage('Updating Script "' + Script.Name + '"');
+//      ShowMessage('Updating Script "' + Script.Name + '"');
       Mng.UpdateLScript(mng.FindRScriptByName(Script.Name));
       ShowMessage('Finished Updating Script "' + Script.Name + '"');
     end else
     begin
-      ShowMessage('Installing Script "' + Script.Name + '"');
+//      ShowMessage('Installing Script "' + Script.Name + '"');
       Mng.InstallNewRScript(mng.FindRScriptByName(Script.Name));
       ShowMessage('Finished Installing Script "' + Script.Name + '"');
     end;
@@ -284,13 +284,13 @@ begin
   Writeln('  Version: ' + Version);
   Writeln('  Description: ' + Description);
   Writeln('  Installed: '+ BoolToStr(Installed,true));
-{  Writeln('  Tags:');
+  Writeln('  Tags:');
   for i := 0 to Tags.Count - 1 do
     Writeln('    ' + Tags[i]);
   Writeln('  Files:');
   for i := 0 to Files.Count - 1 do
     Writeln('    ' + Files[i]);
-}end;
+end;
 
 constructor TSimbaScript.Create;
 begin
@@ -372,17 +372,24 @@ var
 begin
   Databs := TStringList.Create;
   Databs.Add('http://tootoot222.hopto.org:8080/~mcteo/scriptman/scripts.xml');
+  Databs.Add('http://tootoot222.hopto.org:8080/~mcteo/scriptman2/scripts.xml');
+  Databs.Add('http://tootoot222.hopto.org:8080/~mcteo/secretrepo/scripts.cgi?user=user&pass=pass');
+
+  //TODO: Load list of repositories
 
 //  ShowMessage(SettingsForm.Settings.GetKeyValueDefLoad('Settings/SourceEditor/DefScriptPath', ,SimbaSettingsFile));
-  ShowMessage(SimbaSettingsFile);
 //  ShowMessage(LoadSettingDef('Settings/SourceEditor/DefScriptPath', ExpandFileName(MainDir+DS+'default.simba')));
-
   FRScripts.Clear();
+  Form1.Memo1.Clear;
+  Form1.Memo1.Lines.Add('Updating from Repos');
   for X := 0 to Databs.Count-1 do
   begin
+    Form1.Memo1.Lines.Add('Updating from Repos ' + inttostr(X+1) +
+                                    '/' + inttostr(Databs.Count));
     AppendRemoteDB(Databs[X]);
   end;
   Databs.Free;
+  Form1.Memo1.Lines.Add('Finished updating from Repos');
 end;
 
 { Downloads online scripts.xml and parses it, populating FRScripts }

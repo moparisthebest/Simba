@@ -47,14 +47,14 @@
         <ComponentName Value="Form1"/>
         <ResourceBaseClass Value="Form"/>
         <UnitName Value="scriptmanager"/>
+        <IsVisibleTab Value="True"/>
         <EditorIndex Value="0"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="367"/>
-        <CursorPos X="33" Y="377"/>
-        <FoldState Value=" T7i2HD111 T3kG0F52A24."/>
-        <ComponentState Value="1"/>
+        <TopLine Value="110"/>
+        <CursorPos X="1" Y="123"/>
         <UsageCount Value="83"/>
         <Loaded Value="True"/>
+        <LoadedDesigner Value="True"/>
       </Unit1>
       <Unit2>
         <Filename Value="../../../lazarus/lcl/interfaces/gtk/gtkwidgetset.inc"/>
@@ -72,7 +72,6 @@
       <Unit4>
         <Filename Value="../../Units/MMLAddon/settings.pas"/>
         <UnitName Value="settings"/>
-        <IsVisibleTab Value="True"/>
         <EditorIndex Value="2"/>
         <WindowIndex Value="0"/>
         <TopLine Value="564"/>
@@ -300,7 +299,7 @@
         <Loaded Value="True"/>
       </Unit33>
     </Units>
-    <JumpHistory Count="3" HistoryIndex="2">
+    <JumpHistory Count="6" HistoryIndex="5">
       <Position1>
         <Filename Value="scriptmanager.pas"/>
         <Caret Line="377" Column="3" TopLine="363"/>
@@ -313,6 +312,18 @@
         <Filename Value="scriptmanager.pas"/>
         <Caret Line="376" Column="135" TopLine="363"/>
       </Position3>
+      <Position4>
+        <Filename Value="scriptmanager.pas"/>
+        <Caret Line="40" Column="13" TopLine="616"/>
+      </Position4>
+      <Position5>
+        <Filename Value="scriptmanager.pas"/>
+        <Caret Line="384" Column="21" TopLine="371"/>
+      </Position5>
+      <Position6>
+        <Filename Value="scriptmanager.pas"/>
+        <Caret Line="392" Column="36" TopLine="381"/>
+      </Position6>
     </JumpHistory>
   </ProjectOptions>
   <CompilerOptions>
